@@ -338,6 +338,12 @@
       font-weight: 900;
     }
 
+    .login-status {
+      margin-top: 14px;
+      color: var(--muted);
+      font-weight: 900;
+    }
+
     dialog {
       border: 0;
       border-radius: 28px;
@@ -391,7 +397,8 @@
         <input id="passwordInput" type="password" placeholder="Пароль" autocomplete="current-password" required />
         <button type="submit">Войти</button>
       </form>
-      <div id="loginError" class="login-error" hidden>Неверный пароль</div>
+      <div id="loginError" class="login-error" hidden>Неверный пароль или нет связи с Google Таблицей</div>
+      <div id="loginStatus" class="login-status" hidden>Загружаю данные...</div>
     </div>
   </section>
 
@@ -455,7 +462,7 @@
     </section>
 
     <section class="hint glass">
-      Доступ открыт только после входа. В режиме просмотра галочки недоступны, в режиме редактирования можно добавлять ФИО и отмечать этапы.
+      Режим студента — только просмотр. Режим редактора — добавление ФИО, удаление записей и отметка выполненных этапов. Данные сохраняются в Google Таблице.
     </section>
   </main>
 
@@ -471,15 +478,7 @@
   </dialog>
 
   <script>
-    const VIEW_PASSWORD_HASHES = [
-      'd233cfce9d45fa275cbc67e24c768ee7fcd879076aceef52028323d767398793',
-      '3009f90e869644b964524038969a60604a8b0c10190e77216b659fed1e9e6e9b'
-    ];
-
-    const EDIT_PASSWORD_HASHES = [
-      '6575cec05abbdb7f04bac6d55e460c0638e1a7df0c94fa41b45d05aaa8024196',
-      '36663d8232348eb566d629a142fc3e569bab3bd9545e92bce5258aef6e470f50'
-    ];
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxIMpfVByB5mVQukjXR-Sa6iTaDf5R3OhURbnNqDvF6NoHOrImGjkg6ls_1tGX3i2v2/exec';
 
     const TASKS = [
       'reading',
@@ -490,77 +489,123 @@
       'printDiploma'
     ];
 
-    const DEFAULT_STUDENTS = [];
-    let students = loadData();
+    let students = [];
     let accessRole = sessionStorage.getItem('vkrAccessRole') || '';
-
-    function normalizePassword(value) {
-      return value.trim().toUpperCase().replaceAll('Ё', 'Е');
-    }
-
-    async function sha256(text) {
-      const data = new TextEncoder().encode(text);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(hashBuffer))
-        .map(byte => byte.toString(16).padStart(2, '0'))
-        .join('');
-    }
+    let currentPassword = sessionStorage.getItem('vkrPassword') || '';
 
     function isEditor() {
       return accessRole === 'editor';
     }
 
-    function loadData() {
-      const saved = localStorage.getItem('vkrProgressStudents');
-      return saved ? JSON.parse(saved) : DEFAULT_STUDENTS;
+    function jsonp(params) {
+      return new Promise((resolve, reject) => {
+        const callbackName = 'vkrCallback_' + Date.now() + '_' + Math.round(Math.random() * 100000);
+        const url = new URL(API_URL);
+
+        Object.entries(params).forEach(([key, value]) => {
+          url.searchParams.set(key, typeof value === 'object' ? JSON.stringify(value) : value);
+        });
+
+        url.searchParams.set('callback', callbackName);
+
+        const script = document.createElement('script');
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('timeout'));
+        }, 15000);
+
+        function cleanup() {
+          clearTimeout(timer);
+          script.remove();
+          delete window[callbackName];
+        }
+
+        window[callbackName] = (response) => {
+          cleanup();
+          if (response && response.ok) resolve(response);
+          else reject(new Error(response?.error || 'API error'));
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('network error'));
+        };
+
+        script.src = url.toString();
+        document.body.appendChild(script);
+      });
     }
 
-    function saveData() {
-      localStorage.setItem('vkrProgressStudents', JSON.stringify(students));
+    async function loadStudents() {
+      const response = await jsonp({
+        action: 'list',
+        password: currentPassword
+      });
+
+      students = response.students || [];
+      render();
     }
 
     async function login(event) {
       event.preventDefault();
+
       const input = document.getElementById('passwordInput');
       const error = document.getElementById('loginError');
-      const password = normalizePassword(input.value);
-      const passwordHash = await sha256(password);
+      const status = document.getElementById('loginStatus');
 
-      if (EDIT_PASSWORD_HASHES.includes(passwordHash)) {
-        accessRole = 'editor';
-        sessionStorage.setItem('vkrAccessRole', 'editor');
+      error.hidden = true;
+      status.hidden = false;
+
+      try {
+        const response = await jsonp({
+          action: 'login',
+          password: input.value
+        });
+
+        accessRole = response.role;
+        currentPassword = input.value;
+
+        sessionStorage.setItem('vkrAccessRole', accessRole);
+        sessionStorage.setItem('vkrPassword', currentPassword);
+
+        await loadStudents();
         showApp();
-        return;
+      } catch (err) {
+        error.hidden = false;
+        input.value = '';
+        input.focus();
+      } finally {
+        status.hidden = true;
       }
-
-      if (VIEW_PASSWORD_HASHES.includes(passwordHash)) {
-        accessRole = 'viewer';
-        sessionStorage.setItem('vkrAccessRole', 'viewer');
-        showApp();
-        return;
-      }
-
-      error.hidden = false;
-      input.value = '';
-      input.focus();
     }
 
     function showApp() {
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
-      document.getElementById('roleBadge').textContent = isEditor() ? 'Режим редактирования' : 'Режим просмотра';
+
+      document.getElementById('roleBadge').textContent = isEditor()
+        ? 'Режим редактора'
+        : 'Режим студента';
+
       document.getElementById('addBtn').hidden = !isEditor();
       document.getElementById('markAllBtn').hidden = !isEditor();
+
       render();
     }
 
     function logout() {
       sessionStorage.removeItem('vkrAccessRole');
+      sessionStorage.removeItem('vkrPassword');
+
       accessRole = '';
+      currentPassword = '';
+      students = [];
+
       document.getElementById('app').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
       document.getElementById('passwordInput').value = '';
       document.getElementById('loginError').hidden = true;
+      document.getElementById('loginStatus').hidden = true;
       document.getElementById('passwordInput').focus();
     }
 
@@ -635,22 +680,32 @@
       document.getElementById('doneCount').textContent = done;
     }
 
-    function toggleTask(id, task) {
+    async function toggleTask(id, task) {
       if (!isEditor()) return;
 
-      students = students.map(student => {
-        if (student.id !== id) return student;
-        return {
-          ...student,
-          tasks: {
-            ...student.tasks,
-            [task]: !student.tasks?.[task]
-          }
-        };
-      });
+      const student = students.find(item => item.id === id);
+      if (!student) return;
 
-      saveData();
+      student.tasks = {
+        ...student.tasks,
+        [task]: !student.tasks?.[task]
+      };
+
       render();
+
+      try {
+        await jsonp({
+          action: 'update',
+          password: currentPassword,
+          id,
+          tasks: student.tasks
+        });
+
+        await loadStudents();
+      } catch (err) {
+        alert('Не удалось сохранить изменение в Google Таблицу');
+        await loadStudents();
+      }
     }
 
     function openModal() {
@@ -664,7 +719,7 @@
       document.getElementById('nameInput').value = '';
     }
 
-    function addStudent(event) {
+    async function addStudent(event) {
       event.preventDefault();
       if (!isEditor()) return;
 
@@ -672,48 +727,67 @@
       const name = input.value.trim();
       if (!name) return;
 
-      students.push({
-        id: crypto.randomUUID(),
-        name,
-        tasks: {}
-      });
+      try {
+        await jsonp({
+          action: 'add',
+          password: currentPassword,
+          name
+        });
 
-      students.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-      saveData();
-      closeModal();
-      render();
+        closeModal();
+        await loadStudents();
+      } catch (err) {
+        alert('Не удалось добавить ФИО');
+      }
     }
 
-    function deleteStudent(id) {
+    async function deleteStudent(id) {
       if (!isEditor()) return;
 
       const student = students.find(item => item.id === id);
       if (!student) return;
       if (!confirm(`Удалить из списка: ${student.name}?`)) return;
 
-      students = students.filter(item => item.id !== id);
-      saveData();
-      render();
+      try {
+        await jsonp({
+          action: 'delete',
+          password: currentPassword,
+          id
+        });
+
+        await loadStudents();
+      } catch (err) {
+        alert('Не удалось удалить запись');
+      }
     }
 
-    function markAllVisibleDone() {
+    async function markAllVisibleDone() {
       if (!isEditor()) return;
 
       const query = document.getElementById('search').value.trim().toLowerCase();
-      students = students.map(student => {
-        if (!student.name.toLowerCase().includes(query)) return student;
-        return {
-          ...student,
-          tasks: Object.fromEntries(TASKS.map(task => [task, true]))
-        };
-      });
+      const visibleStudents = students.filter(student => student.name.toLowerCase().includes(query));
 
-      saveData();
-      render();
+      try {
+        for (const student of visibleStudents) {
+          await jsonp({
+            action: 'update',
+            password: currentPassword,
+            id: student.id,
+            tasks: Object.fromEntries(TASKS.map(task => [task, true]))
+          });
+        }
+
+        await loadStudents();
+      } catch (err) {
+        alert('Не удалось сохранить изменения');
+        await loadStudents();
+      }
     }
 
-    if (accessRole === 'viewer' || accessRole === 'editor') {
-      showApp();
+    if (accessRole && currentPassword) {
+      loadStudents()
+        .then(showApp)
+        .catch(logout);
     }
   </script>
 </body>
