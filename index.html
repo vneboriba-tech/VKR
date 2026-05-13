@@ -174,7 +174,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1040px;
+      min-width: 1160px;
     }
 
     th, td {
@@ -246,6 +246,30 @@
       color: var(--violet-dark);
       font-size: 13px;
       font-weight: 900;
+    }
+
+    .date-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 116px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.62);
+      color: var(--violet-dark);
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .date-input {
+      width: 142px;
+      border: 1px solid rgba(255,255,255,.65);
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: rgba(255,255,255,.75);
+      color: var(--text);
+      font-weight: 800;
+      outline: none;
     }
 
     input[type="checkbox"] {
@@ -394,7 +418,7 @@
       <h1>Контроль ВКР</h1>
       <p>Введите пароль для просмотра или редактирования таблицы.</p>
       <form onsubmit="login(event)">
-        <input id="passwordInput" type="text" placeholder="Введите пароль" autocomplete="off" lang="ru" inputmode="text" required />
+        <input id="passwordInput" type="password" placeholder="Пароль" autocomplete="current-password" required />
         <button type="submit">Войти</button>
       </form>
       <div id="loginError" class="login-error" hidden>Неверный пароль или нет связи с Google Таблицей</div>
@@ -441,6 +465,7 @@
           <thead>
             <tr>
               <th>ФИО</th>
+              <th>Дата защиты</th>
               <th>ВКР — последняя<br>«читка»</th>
               <th>ВКР — файл<br>FINAL на почте</th>
               <th>Антиплагиат</th>
@@ -470,6 +495,7 @@
     <form class="modal" method="dialog" onsubmit="addStudent(event)">
       <h2>Добавить студента</h2>
       <input id="nameInput" type="text" placeholder="Например: Иванова Анна Сергеевна" required />
+      <input id="defenseDateInput" type="date" />
       <div class="modal-actions">
         <button type="button" class="secondary" onclick="closeModal()">Отмена</button>
         <button type="submit">Добавить</button>
@@ -488,6 +514,23 @@
       'presentation',
       'printDiploma'
     ];
+
+    function sortStudents(list) {
+      return [...list].sort((a, b) => {
+        const dateA = a.defenseDate || '9999-12-31';
+        const dateB = b.defenseDate || '9999-12-31';
+
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        return a.name.localeCompare(b.name, 'ru');
+      });
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const [year, month, day] = value.split('-');
+      if (!year || !month || !day) return value;
+      return `${day}.${month}.${year}`;
+    }
 
     let students = [];
     let accessRole = sessionStorage.getItem('vkrAccessRole') || '';
@@ -542,7 +585,7 @@
         password: currentPassword
       });
 
-      students = response.students || [];
+      students = sortStudents(response.students || []);
       render();
     }
 
@@ -627,7 +670,9 @@
       const tbody = document.getElementById('tbody');
       const empty = document.getElementById('empty');
       const query = document.getElementById('search').value.trim().toLowerCase();
-      const visibleStudents = students.filter(student => student.name.toLowerCase().includes(query));
+      const visibleStudents = sortStudents(
+        students.filter(student => student.name.toLowerCase().includes(query))
+      );
 
       tbody.innerHTML = '';
       empty.hidden = visibleStudents.length > 0;
@@ -642,6 +687,12 @@
               <span class="avatar">${getInitials(student.name)}</span>
               <span>${student.name}</span>
             </div>
+          </td>
+          <td>
+            ${isEditor()
+              ? `<input class="date-input" type="date" value="${student.defenseDate || ''}" onchange="updateDefenseDate('${student.id}', this.value)" />`
+              : `<span class="date-badge">${formatDate(student.defenseDate)}</span>`
+            }
           </td>
           ${TASKS.map(task => `
             <td>
@@ -717,6 +768,7 @@
     function closeModal() {
       document.getElementById('modal').close();
       document.getElementById('nameInput').value = '';
+      document.getElementById('defenseDateInput').value = '';
     }
 
     async function addStudent(event) {
@@ -725,19 +777,45 @@
 
       const input = document.getElementById('nameInput');
       const name = input.value.trim();
+      const defenseDate = document.getElementById('defenseDateInput').value;
       if (!name) return;
 
       try {
         await jsonp({
           action: 'add',
           password: currentPassword,
-          name
+          name,
+          defenseDate
         });
 
         closeModal();
         await loadStudents();
       } catch (err) {
         alert('Не удалось добавить ФИО');
+      }
+    }
+
+    async function updateDefenseDate(id, defenseDate) {
+      if (!isEditor()) return;
+
+      const student = students.find(item => item.id === id);
+      if (!student) return;
+
+      student.defenseDate = defenseDate;
+      students = sortStudents(students);
+      render();
+
+      try {
+        await jsonp({
+          action: 'updateDate',
+          password: currentPassword,
+          id,
+          defenseDate
+        });
+        await loadStudents();
+      } catch (err) {
+        alert('Не удалось сохранить дату защиты');
+        await loadStudents();
       }
     }
 
