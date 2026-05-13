@@ -455,7 +455,7 @@
     </section>
 
     <section class="hint glass">
-      Пароль для просмотра: <b>ЯДОВ</b>. Пароль для редактирования: <b>ЯДОВ26</b>.
+      Доступ открыт только после входа. В режиме просмотра галочки недоступны, в режиме редактирования можно добавлять ФИО и отмечать этапы.
     </section>
   </main>
 
@@ -471,8 +471,15 @@
   </dialog>
 
   <script>
-    const VIEW_PASSWORD = 'ЯДОВ';
-    const EDIT_PASSWORD = 'ЯДОВ26';
+    const VIEW_PASSWORD_HASHES = [
+      'd233cfce9d45fa275cbc67e24c768ee7fcd879076aceef52028323d767398793',
+      '3009f90e869644b964524038969a60604a8b0c10190e77216b659fed1e9e6e9b'
+    ];
+
+    const EDIT_PASSWORD_HASHES = [
+      '6575cec05abbdb7f04bac6d55e460c0638e1a7df0c94fa41b45d05aaa8024196',
+      '36663d8232348eb566d629a142fc3e569bab3bd9545e92bce5258aef6e470f50'
+    ];
 
     const TASKS = [
       'reading',
@@ -488,7 +495,15 @@
     let accessRole = sessionStorage.getItem('vkrAccessRole') || '';
 
     function normalizePassword(value) {
-      return value.trim().toUpperCase().replace('Ё', 'Е');
+      return value.trim().toUpperCase().replaceAll('Ё', 'Е');
+    }
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
     }
 
     function isEditor() {
@@ -504,20 +519,21 @@
       localStorage.setItem('vkrProgressStudents', JSON.stringify(students));
     }
 
-    function login(event) {
+    async function login(event) {
       event.preventDefault();
       const input = document.getElementById('passwordInput');
       const error = document.getElementById('loginError');
       const password = normalizePassword(input.value);
+      const passwordHash = await sha256(password);
 
-      if (password === EDIT_PASSWORD) {
+      if (EDIT_PASSWORD_HASHES.includes(passwordHash)) {
         accessRole = 'editor';
         sessionStorage.setItem('vkrAccessRole', 'editor');
         showApp();
         return;
       }
 
-      if (password === VIEW_PASSWORD) {
+      if (VIEW_PASSWORD_HASHES.includes(passwordHash)) {
         accessRole = 'viewer';
         sessionStorage.setItem('vkrAccessRole', 'viewer');
         showApp();
