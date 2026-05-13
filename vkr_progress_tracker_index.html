@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Контроль ВКР</title>
+  <style>
+    :root {
+      --text: #271f2f;
+      --muted: #655b6f;
+      --white: rgba(255, 255, 255, 0.72);
+      --white-strong: rgba(255, 255, 255, 0.9);
+      --line: rgba(255, 255, 255, 0.45);
+      --violet: #8b4a89;
+      --violet-dark: #5f2f63;
+      --peach: #ffd1b8;
+      --green: #2fa866;
+      --red: #e44b5f;
+      --shadow: 0 24px 80px rgba(26, 19, 51, 0.24);
+      --radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Arial, sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(90deg, rgba(255, 210, 173, .28), rgba(113, 172, 212, .2)),
+        url('png.png') center / cover fixed no-repeat;
+      padding: 34px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(31, 41, 55, .12), rgba(255, 187, 132, .16));
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    button, input { font: inherit; }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      cursor: pointer;
+      background: var(--violet-dark);
+      color: #fff;
+      font-weight: 800;
+      transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
+      box-shadow: 0 10px 30px rgba(95, 47, 99, .22);
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.secondary { background: rgba(255,255,255,.75); color: var(--violet-dark); box-shadow: none; }
+    button.danger { background: rgba(255,255,255,.72); color: #a92f43; box-shadow: none; }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .app {
+      max-width: 1340px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 24px;
+      color: #fff;
+      text-shadow: 0 2px 18px rgba(0,0,0,.22);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(34px, 4vw, 58px);
+      letter-spacing: -0.055em;
+      line-height: .95;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 18px;
+      opacity: .96;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .role-badge {
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.22);
+      border: 1px solid rgba(255,255,255,.34);
+      backdrop-filter: blur(18px);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, .58);
+      border: 1px solid rgba(255,255,255,.55);
+      backdrop-filter: blur(24px) saturate(130%);
+      box-shadow: var(--shadow);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .stat-card strong {
+      display: block;
+      font-size: 36px;
+      letter-spacing: -0.04em;
+      margin-bottom: 4px;
+    }
+
+    .stat-card span {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .toolbar {
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .search, .modal input, .login-card input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.65);
+      border-radius: 999px;
+      padding: 14px 18px;
+      outline: none;
+      background: rgba(255,255,255,.75);
+      color: var(--text);
+    }
+
+    .search:focus, .modal input:focus, .login-card input:focus {
+      border-color: var(--violet);
+      box-shadow: 0 0 0 5px rgba(139, 74, 137, .13);
+    }
+
+    .table-card {
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1040px;
+    }
+
+    th, td {
+      border-bottom: 1px solid rgba(255,255,255,.48);
+      padding: 16px 12px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    th {
+      background: rgba(255,255,255,.42);
+      font-size: 13px;
+      color: #3e3348;
+      line-height: 1.25;
+    }
+
+    th:first-child, td:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: rgba(255, 255, 255, .52);
+      min-width: 280px;
+    }
+
+    th:first-child { z-index: 2; }
+
+    .name-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffe4d6, #f5c7ff);
+      color: var(--violet-dark);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      flex: 0 0 auto;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+    }
+
+    .progress {
+      width: 108px;
+      height: 10px;
+      background: rgba(255,255,255,.55);
+      border-radius: 999px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    .progress > i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #8b4a89, #2fa866);
+      border-radius: 999px;
+      width: 0%;
+      transition: width .2s ease;
+    }
+
+    .percent {
+      color: var(--violet-dark);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    input[type="checkbox"] {
+      width: 24px;
+      height: 24px;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    input[type="checkbox"]:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    .delete-btn {
+      background: transparent;
+      color: var(--red);
+      padding: 6px 8px;
+      font-size: 22px;
+      border-radius: 10px;
+      box-shadow: none;
+    }
+
+    .empty {
+      padding: 58px 20px;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .empty-icon {
+      display: block;
+      font-size: 46px;
+      margin-bottom: 10px;
+      opacity: .68;
+    }
+
+    .hint {
+      margin-top: 18px;
+      border-radius: 22px;
+      padding: 16px 20px;
+      color: #47364d;
+      font-weight: 700;
+    }
+
+    .login-screen {
+      min-height: calc(100vh - 68px);
+      display: grid;
+      place-items: center;
+    }
+
+    .login-card {
+      width: min(480px, 100%);
+      border-radius: 34px;
+      padding: 34px;
+      text-align: center;
+    }
+
+    .login-card h1 {
+      color: var(--text);
+      text-shadow: none;
+      font-size: 44px;
+    }
+
+    .login-card p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .lock-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #fff1e8, #f2d9ff);
+      font-size: 30px;
+    }
+
+    .login-card form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .login-error {
+      margin-top: 14px;
+      color: #a92f43;
+      font-weight: 900;
+    }
+
+    dialog {
+      border: 0;
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 0;
+      width: min(520px, calc(100vw - 32px));
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(24px);
+    }
+
+    dialog::backdrop { background: rgba(39, 31, 47, .35); }
+
+    .modal { padding: 24px; }
+
+    .modal h2 {
+      margin: 0 0 14px;
+      font-size: 28px;
+      letter-spacing: -0.035em;
+    }
+
+    .modal input {
+      border-radius: 18px;
+      margin-bottom: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 760px) {
+      body { padding: 18px; background-attachment: scroll; }
+      header { flex-direction: column; }
+      .actions { justify-content: flex-start; }
+      .stats { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      .login-card { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card glass">
+      <div class="lock-icon">🔐</div>
+      <h1>Контроль ВКР</h1>
+      <p>Введите пароль для просмотра или редактирования таблицы.</p>
+      <form onsubmit="login(event)">
+        <input id="passwordInput" type="password" placeholder="Пароль" autocomplete="current-password" required />
+        <button type="submit">Войти</button>
+      </form>
+      <div id="loginError" class="login-error" hidden>Неверный пароль</div>
+    </div>
+  </section>
+
+  <main id="app" class="app hidden">
+    <header>
+      <div>
+        <h1>ВКР — трекер готовности ✨</h1>
+        <p class="subtitle">Последняя читка, FINAL-файл, антиплагиат, рецензия, презентация и печать диплома.</p>
+      </div>
+      <div class="actions">
+        <span id="roleBadge" class="role-badge">Просмотр</span>
+        <button id="addBtn" onclick="openModal()">+ Добавить ФИО</button>
+        <button class="danger" onclick="logout()">Выйти</button>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat-card glass">
+        <strong id="studentsCount">0</strong>
+        <span>студентов в списке</span>
+      </div>
+      <div class="stat-card glass">
+        <strong id="averageProgress">0%</strong>
+        <span>средняя готовность</span>
+      </div>
+      <div class="stat-card glass">
+        <strong id="doneCount">0</strong>
+        <span>полностью готово</span>
+      </div>
+    </section>
+
+    <section class="toolbar glass">
+      <input id="search" class="search" type="search" placeholder="Поиск по ФИО..." oninput="render()" />
+      <button id="markAllBtn" class="secondary" onclick="markAllVisibleDone()">Отметить видимых готовыми</button>
+    </section>
+
+    <section class="table-card glass">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ФИО</th>
+              <th>ВКР — последняя<br>«читка»</th>
+              <th>ВКР — файл<br>FINAL на почте</th>
+              <th>Антиплагиат</th>
+              <th>Рецензия</th>
+              <th>Презентация</th>
+              <th>Печать диплома</th>
+              <th>Готовность</th>
+              <th class="editor-only"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div id="empty" class="empty" hidden>
+        <span class="empty-icon">📋</span>
+        Пока нет ни одной записи.<br>
+        Войдите с паролем редактора, чтобы добавить студентов.
+      </div>
+    </section>
+
+    <section class="hint glass">
+      Пароль для просмотра: <b>ЯДОВ</b>. Пароль для редактирования: <b>ЯДОВ26</b>.
+    </section>
+  </main>
+
+  <dialog id="modal">
+    <form class="modal" method="dialog" onsubmit="addStudent(event)">
+      <h2>Добавить студента</h2>
+      <input id="nameInput" type="text" placeholder="Например: Иванова Анна Сергеевна" required />
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="closeModal()">Отмена</button>
+        <button type="submit">Добавить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const VIEW_PASSWORD = 'ЯДОВ';
+    const EDIT_PASSWORD = 'ЯДОВ26';
+
+    const TASKS = [
+      'reading',
+      'finalEmail',
+      'antiplagiat',
+      'review',
+      'presentation',
+      'printDiploma'
+    ];
+
+    const DEFAULT_STUDENTS = [];
+    let students = loadData();
+    let accessRole = sessionStorage.getItem('vkrAccessRole') || '';
+
+    function normalizePassword(value) {
+      return value.trim().toUpperCase().replace('Ё', 'Е');
+    }
+
+    function isEditor() {
+      return accessRole === 'editor';
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem('vkrProgressStudents');
+      return saved ? JSON.parse(saved) : DEFAULT_STUDENTS;
+    }
+
+    function saveData() {
+      localStorage.setItem('vkrProgressStudents', JSON.stringify(students));
+    }
+
+    function login(event) {
+      event.preventDefault();
+      const input = document.getElementById('passwordInput');
+      const error = document.getElementById('loginError');
+      const password = normalizePassword(input.value);
+
+      if (password === EDIT_PASSWORD) {
+        accessRole = 'editor';
+        sessionStorage.setItem('vkrAccessRole', 'editor');
+        showApp();
+        return;
+      }
+
+      if (password === VIEW_PASSWORD) {
+        accessRole = 'viewer';
+        sessionStorage.setItem('vkrAccessRole', 'viewer');
+        showApp();
+        return;
+      }
+
+      error.hidden = false;
+      input.value = '';
+      input.focus();
+    }
+
+    function showApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('roleBadge').textContent = isEditor() ? 'Режим редактирования' : 'Режим просмотра';
+      document.getElementById('addBtn').hidden = !isEditor();
+      document.getElementById('markAllBtn').hidden = !isEditor();
+      render();
+    }
+
+    function logout() {
+      sessionStorage.removeItem('vkrAccessRole');
+      accessRole = '';
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('loginError').hidden = true;
+      document.getElementById('passwordInput').focus();
+    }
+
+    function getInitials(name) {
+      return name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase())
+        .join('');
+    }
+
+    function getProgress(student) {
+      const done = TASKS.filter(task => student.tasks?.[task]).length;
+      return Math.round((done / TASKS.length) * 100);
+    }
+
+    function render() {
+      const tbody = document.getElementById('tbody');
+      const empty = document.getElementById('empty');
+      const query = document.getElementById('search').value.trim().toLowerCase();
+      const visibleStudents = students.filter(student => student.name.toLowerCase().includes(query));
+
+      tbody.innerHTML = '';
+      empty.hidden = visibleStudents.length > 0;
+
+      for (const student of visibleStudents) {
+        const progress = getProgress(student);
+        const row = document.createElement('tr');
+
+        row.innerHTML = `
+          <td>
+            <div class="name-cell">
+              <span class="avatar">${getInitials(student.name)}</span>
+              <span>${student.name}</span>
+            </div>
+          </td>
+          ${TASKS.map(task => `
+            <td>
+              <input
+                type="checkbox"
+                ${student.tasks?.[task] ? 'checked' : ''}
+                ${isEditor() ? '' : 'disabled'}
+                onchange="toggleTask('${student.id}', '${task}')"
+              />
+            </td>
+          `).join('')}
+          <td>
+            <span class="progress"><i style="width:${progress}%"></i></span>
+            <span class="percent">${progress}%</span>
+          </td>
+          <td class="editor-only">
+            ${isEditor() ? `<button class="delete-btn" onclick="deleteStudent('${student.id}')" title="Удалить">×</button>` : ''}
+          </td>
+        `;
+
+        tbody.appendChild(row);
+      }
+
+      updateStats();
+    }
+
+    function updateStats() {
+      const total = students.length;
+      const average = total
+        ? Math.round(students.reduce((sum, student) => sum + getProgress(student), 0) / total)
+        : 0;
+      const done = students.filter(student => getProgress(student) === 100).length;
+
+      document.getElementById('studentsCount').textContent = total;
+      document.getElementById('averageProgress').textContent = average + '%';
+      document.getElementById('doneCount').textContent = done;
+    }
+
+    function toggleTask(id, task) {
+      if (!isEditor()) return;
+
+      students = students.map(student => {
+        if (student.id !== id) return student;
+        return {
+          ...student,
+          tasks: {
+            ...student.tasks,
+            [task]: !student.tasks?.[task]
+          }
+        };
+      });
+
+      saveData();
+      render();
+    }
+
+    function openModal() {
+      if (!isEditor()) return;
+      document.getElementById('modal').showModal();
+      setTimeout(() => document.getElementById('nameInput').focus(), 50);
+    }
+
+    function closeModal() {
+      document.getElementById('modal').close();
+      document.getElementById('nameInput').value = '';
+    }
+
+    function addStudent(event) {
+      event.preventDefault();
+      if (!isEditor()) return;
+
+      const input = document.getElementById('nameInput');
+      const name = input.value.trim();
+      if (!name) return;
+
+      students.push({
+        id: crypto.randomUUID(),
+        name,
+        tasks: {}
+      });
+
+      students.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+      saveData();
+      closeModal();
+      render();
+    }
+
+    function deleteStudent(id) {
+      if (!isEditor()) return;
+
+      const student = students.find(item => item.id === id);
+      if (!student) return;
+      if (!confirm(`Удалить из списка: ${student.name}?`)) return;
+
+      students = students.filter(item => item.id !== id);
+      saveData();
+      render();
+    }
+
+    function markAllVisibleDone() {
+      if (!isEditor()) return;
+
+      const query = document.getElementById('search').value.trim().toLowerCase();
+      students = students.map(student => {
+        if (!student.name.toLowerCase().includes(query)) return student;
+        return {
+          ...student,
+          tasks: Object.fromEntries(TASKS.map(task => [task, true]))
+        };
+      });
+
+      saveData();
+      render();
+    }
+
+    if (accessRole === 'viewer' || accessRole === 'editor') {
+      showApp();
+    }
+  </script>
+</body>
+</html>
