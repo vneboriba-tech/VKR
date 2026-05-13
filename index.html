@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Контроль ВКР</title>
+  <script src="config.js"></script>
   <style>
     :root {
       --text: #271f2f;
@@ -418,7 +419,7 @@
       <h1>Контроль ВКР</h1>
       <p>Введите пароль для просмотра или редактирования таблицы.</p>
       <form onsubmit="login(event)">
-        <input id="passwordInput" type="password" placeholder="Пароль" autocomplete="current-password" required />
+        <input id="passwordInput" type="text" placeholder="Введите пароль" autocomplete="off" lang="ru" inputmode="text" required />
         <button type="submit">Войти</button>
       </form>
       <div id="loginError" class="login-error" hidden>Неверный пароль или нет связи с Google Таблицей</div>
@@ -504,7 +505,7 @@
   </dialog>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxIMpfVByB5mVQukjXR-Sa6iTaDf5R3OhURbnNqDvF6NoHOrImGjkg6ls_1tGX3i2v2/exec';
+    const API_URL = window.APP_CONFIG.API_URL;
 
     const TASKS = [
       'reading',
@@ -671,7 +672,10 @@
       const empty = document.getElementById('empty');
       const query = document.getElementById('search').value.trim().toLowerCase();
       const visibleStudents = sortStudents(
-        students.filter(student => student.name.toLowerCase().includes(query))
+        students.filter(student =>
+          student.name.toLowerCase().includes(query) ||
+          formatDate(student.defenseDate).includes(query)
+        )
       );
 
       tbody.innerHTML = '';
@@ -843,7 +847,12 @@
       if (!isEditor()) return;
 
       const query = document.getElementById('search').value.trim().toLowerCase();
-      const visibleStudents = students.filter(student => student.name.toLowerCase().includes(query));
+      const visibleStudents = sortStudents(
+        students.filter(student =>
+          student.name.toLowerCase().includes(query) ||
+          formatDate(student.defenseDate).includes(query)
+        )
+      );
 
       try {
         for (const student of visibleStudents) {
